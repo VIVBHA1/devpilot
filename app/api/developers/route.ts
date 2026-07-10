@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { generateSlug } from '@/lib/utils'
 import { sendApplicationReceived } from '@/lib/resend'
 import { startKycVerification } from '@/lib/kyc'
+import { logCandidateEvent } from '@/lib/candidateEvents'
 
 const workHistory = z.object({
   company_name: z.string().min(1),
@@ -46,6 +47,10 @@ const reference = z.object({
   relationship: z.string().optional(),
   company_name: z.string().optional(),
 })
+const skillTag = z.object({
+  skill_tool_id: z.string().uuid(),
+  proficiency_tier: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).optional(),
+})
 
 const schema = z.object({
   full_name: z.string().min(2),
@@ -56,7 +61,7 @@ const schema = z.object({
   city: z.string().min(1),
   state: z.string().min(1),
   country: z.string().min(1),
-  linkedin_url: z.string().includes('linkedin.com/in/'),
+  linkedin_url: z.string().optional().refine((v) => !v || v.includes('linkedin.com/in/'), { message: 'Must be a linkedin.com/in/ URL' }),
   github_url: z.string().optional(),
   portfolio_url: z.string().optional(),
   id_document_type: z.enum(['Aadhaar', 'PAN', 'Passport', 'Driving License']),
@@ -76,6 +81,7 @@ const schema = z.object({
   available_from: z.string().min(1),
   references: z.array(reference).min(1),
   video_intro_url: z.string().optional(),
+  skill_tags: z.array(skillTag).optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -101,7 +107,7 @@ export async function POST(req: NextRequest) {
         city: data.city,
         state: data.state,
         country: data.country,
-        linkedin_url: data.linkedin_url,
+        linkedin_url: data.linkedin_url || '',
         github_url: data.github_url || null,
         portfolio_url: data.portfolio_url || null,
         primary_role: data.primary_role,
@@ -214,6 +220,18 @@ export async function POST(req: NextRequest) {
         }))
       ) as unknown as Promise<unknown>
     )
+    if (data.skill_tags?.length) {
+      inserts.push(
+        supabase.from('developer_skill_tags').insert(
+          data.skill_tags.map((t) => ({
+            developer_id: devId,
+            skill_tool_id: t.skill_tool_id,
+            proficiency_tier: t.proficiency_tier ?? 'beginner',
+            evidence_type: 'self_declared',
+          }))
+        ) as unknown as Promise<unknown>
+      )
+    }
     await Promise.all(inserts)
 
     // 3. Kick off KYC verification (§3)
@@ -243,6 +261,9 @@ export async function POST(req: NextRequest) {
       email: data.email,
       primary_role: data.primary_role,
     }).catch(console.error)
+
+    logCandidateEvent(devId, 'application_submitted', 'candidate').catch(console.error)
+    logCandidateEvent(devId, 'kyc_submitted', 'candidate').catch(console.error)
 
     return NextResponse.json({ id: devId }, { status: 201 })
   } catch (e: unknown) {

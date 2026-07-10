@@ -46,6 +46,9 @@ export interface Database {
           kyc_reference_id: string | null
           kyc_verified_at: string | null
           kyc_rejection_reason: string | null
+          // Design Change #2 additions
+          source_type: SourceTypeValue
+          sourced_by_partner_id: string | null
         }
         Insert: {
           id?: string
@@ -90,6 +93,8 @@ export interface Database {
           kyc_reference_id?: string | null
           kyc_verified_at?: string | null
           kyc_rejection_reason?: string | null
+          source_type?: SourceTypeValue
+          sourced_by_partner_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['developers']['Insert']>
       }
@@ -239,6 +244,7 @@ export interface Database {
           file_name: string | null
           file_type: string | null
           uploaded_at: string
+          parsed_fields: ParsedBriefFields | null
         }
         Insert: {
           id?: string
@@ -247,8 +253,216 @@ export interface Database {
           file_name?: string | null
           file_type?: string | null
           uploaded_at?: string
+          parsed_fields?: ParsedBriefFields | null
         }
         Update: Partial<Database['public']['Tables']['brief_attachments']['Insert']>
+      }
+      skill_domains: {
+        Row: { id: string; name: string }
+        Insert: { id?: string; name: string }
+        Update: Partial<Database['public']['Tables']['skill_domains']['Insert']>
+      }
+      skill_subdisciplines: {
+        Row: { id: string; domain_id: string; name: string }
+        Insert: { id?: string; domain_id: string; name: string }
+        Update: Partial<Database['public']['Tables']['skill_subdisciplines']['Insert']>
+      }
+      skill_tools: {
+        Row: { id: string; subdiscipline_id: string; name: string }
+        Insert: { id?: string; subdiscipline_id: string; name: string }
+        Update: Partial<Database['public']['Tables']['skill_tools']['Insert']>
+      }
+      developer_skill_tags: {
+        Row: {
+          id: string
+          developer_id: string
+          skill_tool_id: string
+          proficiency_tier: ProficiencyTierValue
+          evidence_type: EvidenceTypeValue
+          evidence_ref: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          developer_id: string
+          skill_tool_id: string
+          proficiency_tier?: ProficiencyTierValue
+          evidence_type?: EvidenceTypeValue
+          evidence_ref?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['developer_skill_tags']['Insert']>
+      }
+      brief_skill_tags: {
+        Row: {
+          id: string
+          brief_id: string
+          skill_tool_id: string
+          requirement_type: RequirementTypeValue
+        }
+        Insert: {
+          id?: string
+          brief_id: string
+          skill_tool_id: string
+          requirement_type?: RequirementTypeValue
+        }
+        Update: Partial<Database['public']['Tables']['brief_skill_tags']['Insert']>
+      }
+      scoring_weights: {
+        Row: {
+          id: string
+          skill_weight: number
+          location_weight: number
+          trust_weight: number
+          rating_weight: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          skill_weight?: number
+          location_weight?: number
+          trust_weight?: number
+          rating_weight?: number
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['scoring_weights']['Insert']>
+      }
+      skill_match_credit: {
+        Row: { id: string; match_type: SkillMatchTypeValue; credit_multiplier: number }
+        Insert: { id?: string; match_type: SkillMatchTypeValue; credit_multiplier: number }
+        Update: Partial<Database['public']['Tables']['skill_match_credit']['Insert']>
+      }
+      match_scores: {
+        Row: {
+          id: string
+          developer_id: string
+          brief_id: string
+          skill_score: number
+          location_score: number
+          trust_score: number
+          rating_score: number
+          overall_score: number
+          reason_text: string | null
+          computed_at: string
+        }
+        Insert: {
+          id?: string
+          developer_id: string
+          brief_id: string
+          skill_score?: number
+          location_score?: number
+          trust_score?: number
+          rating_score?: number
+          overall_score?: number
+          reason_text?: string | null
+          computed_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['match_scores']['Insert']>
+      }
+      sourcing_partners: {
+        Row: {
+          id: string
+          name: string
+          contact_email: string | null
+          type: SourcingPartnerTypeValue
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          contact_email?: string | null
+          type: SourcingPartnerTypeValue
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['sourcing_partners']['Insert']>
+      }
+      candidate_events: {
+        Row: {
+          id: string
+          developer_id: string
+          event_type: string
+          actor_type: ActorTypeValue
+          actor_id: string | null
+          metadata: Record<string, unknown>
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          developer_id: string
+          event_type: string
+          actor_type: ActorTypeValue
+          actor_id?: string | null
+          metadata?: Record<string, unknown>
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['candidate_events']['Insert']>
+      }
+      company_users: {
+        Row: {
+          id: string
+          buyer_id: string
+          email: string
+          role: CompanyRoleValue
+          invited_at: string
+          joined_at: string | null
+        }
+        Insert: {
+          id?: string
+          buyer_id: string
+          email: string
+          role?: CompanyRoleValue
+          invited_at?: string
+          joined_at?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['company_users']['Insert']>
+      }
+      candidate_screening_ratings: {
+        Row: {
+          id: string
+          brief_id: string
+          developer_id: string
+          rated_by: string | null
+          profile_quality: number
+          presentability: number
+          responsiveness: number
+          expectation_match: number
+          notes: string | null
+          created_at: string
+          locked_at: string | null
+        }
+        Insert: {
+          id?: string
+          brief_id: string
+          developer_id: string
+          rated_by?: string | null
+          profile_quality: number
+          presentability: number
+          responsiveness: number
+          expectation_match: number
+          notes?: string | null
+          created_at?: string
+          locked_at?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['candidate_screening_ratings']['Insert']>
+      }
+      offer_links: {
+        Row: {
+          id: string
+          brief_negotiation_id: string
+          token: string
+          expires_at: string
+          used_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          brief_negotiation_id: string
+          token: string
+          expires_at: string
+          used_at?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['offer_links']['Insert']>
       }
       brief_negotiations: {
         Row: {
@@ -291,6 +505,10 @@ export interface Database {
           subscription_tier: 'free' | 'growth' | 'portfolio'
           subscription_until: string | null
           total_engagements: number
+          // Design Change #2 additions
+          email_domain_verified: boolean
+          email_verification_token: string | null
+          email_verification_expires_at: string | null
         }
         Insert: {
           id?: string
@@ -307,6 +525,9 @@ export interface Database {
           subscription_tier?: 'free' | 'growth' | 'portfolio'
           subscription_until?: string | null
           total_engagements?: number
+          email_domain_verified?: boolean
+          email_verification_token?: string | null
+          email_verification_expires_at?: string | null
         }
         Update: Partial<Database['public']['Tables']['buyers']['Insert']>
       }
@@ -330,6 +551,9 @@ export interface Database {
           project_type: 'fixed' | 'hourly' | null
           experience_level_required: 'Junior' | 'Mid' | 'Senior' | 'Any' | null
           is_negotiable: boolean
+          // Design Change #2 additions
+          priority: BriefPriorityValue
+          source_type: BriefSourceTypeValue
         }
         Insert: {
           id?: string
@@ -349,6 +573,8 @@ export interface Database {
           project_type?: 'fixed' | 'hourly' | null
           experience_level_required?: 'Junior' | 'Mid' | 'Senior' | 'Any' | null
           is_negotiable?: boolean
+          priority?: BriefPriorityValue
+          source_type?: BriefSourceTypeValue
         }
         Update: Partial<Database['public']['Tables']['briefs']['Insert']>
       }
@@ -496,6 +722,59 @@ export type NegotiationStatusValue =
   | 'rejected'
   | 'countered'
 
+// Design Change #2 value types
+export type SourceTypeValue =
+  | 'self_signup'
+  | 'staffing_partner'
+  | 'field_recruiter'
+  | 'referral'
+  | 'bulk_import'
+
+export type SourcingPartnerTypeValue =
+  | 'staffing_partner'
+  | 'field_recruiter'
+  | 'referral_program'
+
+export type ActorTypeValue = 'system' | 'candidate' | 'admin' | 'partner'
+
+export type ProficiencyTierValue = 'beginner' | 'intermediate' | 'advanced' | 'expert'
+
+export type EvidenceTypeValue =
+  | 'self_declared'
+  | 'portfolio'
+  | 'certification'
+  | 'skill_test'
+  | 'engagement_history'
+
+export type RequirementTypeValue = 'required' | 'preferred'
+
+export type SkillMatchTypeValue =
+  | 'exact'
+  | 'same_subdiscipline'
+  | 'same_domain'
+  | 'different_domain'
+
+export type BriefPriorityValue = 'urgent' | 'high' | 'standard'
+
+export type BriefSourceTypeValue =
+  | 'manual_form'
+  | 'pdf_upload'
+  | 'doc_upload'
+  | 'forwarded_email'
+
+export type CompanyRoleValue = 'owner' | 'admin' | 'viewer'
+
+export interface ParsedBriefFields {
+  role_type?: string
+  tech_stack?: string[]
+  duration_weeks?: number
+  budget_min?: number
+  budget_max?: number
+  experience_level_required?: string
+  confidence?: 'high' | 'medium' | 'low'
+  low_confidence_fields?: string[]
+}
+
 // ── Convenience aliases ─────────────────────────────────────
 export type Developer = Database['public']['Tables']['developers']['Row']
 export type DeveloperInsert = Database['public']['Tables']['developers']['Insert']
@@ -525,6 +804,44 @@ export type BriefAttachment = Database['public']['Tables']['brief_attachments'][
 export type BriefAttachmentInsert = Database['public']['Tables']['brief_attachments']['Insert']
 export type BriefNegotiation = Database['public']['Tables']['brief_negotiations']['Row']
 export type BriefNegotiationInsert = Database['public']['Tables']['brief_negotiations']['Insert']
+
+// Design Change #2 aliases
+export type SkillDomain = Database['public']['Tables']['skill_domains']['Row']
+export type SkillSubdiscipline = Database['public']['Tables']['skill_subdisciplines']['Row']
+export type SkillTool = Database['public']['Tables']['skill_tools']['Row']
+export type DeveloperSkillTag = Database['public']['Tables']['developer_skill_tags']['Row']
+export type DeveloperSkillTagInsert = Database['public']['Tables']['developer_skill_tags']['Insert']
+export type BriefSkillTag = Database['public']['Tables']['brief_skill_tags']['Row']
+export type BriefSkillTagInsert = Database['public']['Tables']['brief_skill_tags']['Insert']
+export type ScoringWeights = Database['public']['Tables']['scoring_weights']['Row']
+export type SkillMatchCredit = Database['public']['Tables']['skill_match_credit']['Row']
+export type MatchScore = Database['public']['Tables']['match_scores']['Row']
+export type MatchScoreInsert = Database['public']['Tables']['match_scores']['Insert']
+export type SourcingPartner = Database['public']['Tables']['sourcing_partners']['Row']
+export type CandidateEvent = Database['public']['Tables']['candidate_events']['Row']
+export type CandidateEventInsert = Database['public']['Tables']['candidate_events']['Insert']
+export type CompanyUser = Database['public']['Tables']['company_users']['Row']
+export type CompanyUserInsert = Database['public']['Tables']['company_users']['Insert']
+export type CandidateScreeningRating = Database['public']['Tables']['candidate_screening_ratings']['Row']
+export type CandidateScreeningRatingInsert = Database['public']['Tables']['candidate_screening_ratings']['Insert']
+export type OfferLink = Database['public']['Tables']['offer_links']['Row']
+export type OfferLinkInsert = Database['public']['Tables']['offer_links']['Insert']
+
+// Taxonomy tree shape used by the SkillTaxonomyPicker component
+export type SkillToolWithPath = SkillTool & {
+  subdiscipline_name: string
+  domain_name: string
+  domain_id: string
+}
+
+// Ranked candidate row returned by GET /api/briefs/[id]/candidates
+export type RankedCandidate = MatchScore & {
+  developer: Pick<
+    Developer,
+    'id' | 'full_name' | 'slug' | 'primary_role' | 'tech_stack' | 'tier' |
+    'monthly_rate_min' | 'monthly_rate_max' | 'location_interests' | 'city' | 'profile_score'
+  >
+}
 
 // Full profile with all Change #1 child collections
 export type DeveloperFullProfile = Developer & {
@@ -602,6 +919,32 @@ export const NEGOTIATION_STATUS = {
 export const ID_DOCUMENT_TYPES = ['Aadhaar', 'PAN', 'Passport', 'Driving License'] as const
 export const EXPERIENCE_LEVELS = ['Junior', 'Mid', 'Senior', 'Any'] as const
 export const ENGAGEMENT_TYPES = ['hourly', 'project', 'monthly'] as const
+
+export const COMPANY_ROLE = {
+  OWNER: 'owner',
+  ADMIN: 'admin',
+  VIEWER: 'viewer',
+} as const
+
+export const BRIEF_PRIORITY = {
+  URGENT: 'urgent',
+  HIGH: 'high',
+  STANDARD: 'standard',
+} as const
+
+export const BRIEF_SOURCE_TYPE = {
+  MANUAL_FORM: 'manual_form',
+  PDF_UPLOAD: 'pdf_upload',
+  DOC_UPLOAD: 'doc_upload',
+  FORWARDED_EMAIL: 'forwarded_email',
+} as const
+
+export const PROFICIENCY_TIER = {
+  BEGINNER: 'beginner',
+  INTERMEDIATE: 'intermediate',
+  ADVANCED: 'advanced',
+  EXPERT: 'expert',
+} as const
 
 // ── Extended types ──────────────────────────────────────────
 export interface WeeklyUpdate {

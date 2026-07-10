@@ -3,11 +3,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, Plus, X, Check, FileText } from 'lucide-react'
+import { Loader2, Plus, X, Check, FileText, Sparkles, RefreshCw } from 'lucide-react'
 import { StatusBadge } from '@/components/admin/StatusBadge'
 import { NegotiationPanel } from '@/components/negotiation/NegotiationPanel'
 import { formatINR } from '@/lib/utils'
-import type { Brief, Developer } from '@/types/database'
+import type { Brief, Developer, RankedCandidate } from '@/types/database'
 
 type ShortlistRow = {
   id: string
@@ -27,22 +27,43 @@ export default function AdminBriefDetailPage() {
   const { id } = useParams() as { id: string }
   const [brief, setBrief] = useState<BriefWithBuyer | null>(null)
   const [developers, setDevelopers] = useState<Developer[]>([])
+  const [candidates, setCandidates] = useState<RankedCandidate[]>([])
+  const [recomputing, setRecomputing] = useState(false)
   const [selected, setSelected] = useState<Developer[]>([])
   const [confirming, setConfirming] = useState(false)
   const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    const [briefRes, devRes] = await Promise.all([
+    const [briefRes, devRes, candRes] = await Promise.all([
       fetch(`/api/briefs/${id}`),
       fetch('/api/developers?status=approved'),
+      fetch(`/api/briefs/${id}/candidates`),
     ])
     if (briefRes.ok) setBrief(await briefRes.json())
     if (devRes.ok) setDevelopers(await devRes.json())
+    if (candRes.ok) setCandidates(await candRes.json())
     setLoading(false)
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  const recompute = async () => {
+    setRecomputing(true)
+    await fetch('/api/matching/compute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brief_id: id }),
+    })
+    const res = await fetch(`/api/briefs/${id}/candidates`)
+    if (res.ok) setCandidates(await res.json())
+    setRecomputing(false)
+  }
+
+  const addSuggestedToSelection = (candidate: RankedCandidate) => {
+    const dev = developers.find((d) => d.id === candidate.developer_id)
+    if (dev) toggle(dev)
+  }
 
   const toggle = (dev: Developer) => {
     setSelected((prev) => {
@@ -176,6 +197,50 @@ export default function AdminBriefDetailPage() {
                 {confirming ? 'Confirming...' : 'Confirm Shortlist (3 required)'}
               </button>
             </div>
+          </div>
+
+          {/* Suggested matches (ranked, explainable) */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 lg:col-span-2">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#2563EB]" /> Suggested matches
+              </h2>
+              <button
+                onClick={recompute}
+                disabled={recomputing}
+                className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${recomputing ? 'animate-spin' : ''}`} /> Recompute
+              </button>
+            </div>
+            {candidates.length === 0 ? (
+              <p className="text-sm text-gray-400">No scored candidates yet — click Recompute to run the matching engine.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {candidates.slice(0, 8).map((c) => {
+                  const isSelected = selected.some((d) => d.id === c.developer_id)
+                  return (
+                    <div key={c.id} className={`p-3 rounded-lg border ${isSelected ? 'border-[#2563EB] bg-blue-50' : 'border-gray-200'}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 text-sm truncate">{c.developer.full_name}</p>
+                          <p className="text-xs text-gray-500">{c.developer.primary_role} · {c.developer.tier ?? 'Standard'}</p>
+                        </div>
+                        <span className="shrink-0 text-sm font-bold text-[#2563EB]">{Math.round(c.overall_score)}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{c.reason_text}</p>
+                      <button
+                        onClick={() => addSuggestedToSelection(c)}
+                        disabled={!isSelected && selected.length >= 3}
+                        className={`mt-2 text-xs font-medium ${isSelected ? 'text-red-600' : 'text-[#2563EB]'} disabled:opacity-40 disabled:cursor-not-allowed`}
+                      >
+                        {isSelected ? 'Remove from selection' : '+ Add to selection'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Developer picker */}

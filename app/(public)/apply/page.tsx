@@ -7,14 +7,8 @@ import { z } from 'zod'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, ChevronLeft, Loader2, Plus, Trash2, ShieldCheck } from 'lucide-react'
 import { FileUpload } from '@/components/ui/FileUpload'
+import { SkillTaxonomyPicker, type SkillTagValue } from '@/components/ui/SkillTaxonomyPicker'
 
-const TECH_STACK_OPTIONS = {
-  Frontend: ['React', 'Next.js', 'Vue.js', 'Angular', 'TypeScript'],
-  Backend: ['Node.js', 'Python', 'Java', 'Go', '.NET'],
-  Database: ['PostgreSQL', 'MongoDB', 'MySQL', 'Redis'],
-  Cloud: ['AWS', 'GCP', 'Azure', 'Docker', 'Kubernetes', 'Terraform'],
-  Other: ['GraphQL', 'REST APIs', 'CI/CD', 'Git'],
-}
 const CITIES = ['Bengaluru', 'Delhi-NCR', 'Mumbai', 'Hyderabad', 'Remote']
 const JOB_INTERESTS = ['Full-Stack', 'Cloud', 'DevOps', 'Frontend', 'Backend', 'Data']
 const LOCATION_INTERESTS = ['Remote', 'Bengaluru', 'Delhi-NCR', 'Mumbai', 'Hyderabad', 'Pune']
@@ -32,7 +26,7 @@ const schema = z.object({
   city: z.string().min(1, 'City is required'),
   state: z.string().min(1, 'State is required'),
   country: z.string().min(1, 'Country is required'),
-  linkedin_url: z.string().min(1, 'LinkedIn URL is required').refine((v) => v.includes('linkedin.com/in/'), 'Must be a linkedin.com/in/ URL'),
+  linkedin_url: z.string().optional().refine((v) => !v || v.includes('linkedin.com/in/'), 'Must be a linkedin.com/in/ URL'),
   github_url: z.string().optional(),
   portfolio_url: z.string().optional(),
   id_document_type: z.enum(ID_TYPES),
@@ -116,6 +110,7 @@ export default function ApplyPage() {
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [skillTags, setSkillTags] = useState<SkillTagValue[]>([])
   const router = useRouter()
 
   const form = useForm<FormData>({
@@ -144,9 +139,14 @@ export default function ApplyPage() {
   const rateCards = useFieldArray({ control: form.control, name: 'rate_cards' })
   const references = useFieldArray({ control: form.control, name: 'references' })
 
-  const toggleArray = (field: 'tech_stack' | 'job_interests' | 'location_interests', val: string) => {
+  const toggleArray = (field: 'job_interests' | 'location_interests', val: string) => {
     const cur = getValues(field)
     setValue(field, cur.includes(val) ? cur.filter((v) => v !== val) : [...cur, val], { shouldValidate: true })
+  }
+
+  const handleSkillTagsChange = (tags: SkillTagValue[]) => {
+    setSkillTags(tags)
+    setValue('tech_stack', tags.map((t) => t.name), { shouldValidate: true })
   }
 
   const STEP_FIELDS: (keyof FormData)[][] = [
@@ -171,7 +171,7 @@ export default function ApplyPage() {
       const res = await fetch('/api/developers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, skill_tags: skillTags }),
       })
       if (!res.ok) {
         const body = await res.json()
@@ -184,7 +184,6 @@ export default function ApplyPage() {
     }
   }
 
-  const techStack = watch('tech_stack')
   const jobInterests = watch('job_interests')
   const locationInterests = watch('location_interests')
   const values = getValues()
@@ -247,7 +246,7 @@ export default function ApplyPage() {
                     <input {...register('country')} className={inputCls(errors.country)} />
                   </Field>
                 </div>
-                <Field label="LinkedIn URL *" error={errors.linkedin_url?.message}>
+                <Field label="LinkedIn URL" error={errors.linkedin_url?.message}>
                   <input {...register('linkedin_url')} className={inputCls(errors.linkedin_url)} placeholder="https://linkedin.com/in/yourprofile" />
                 </Field>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -311,17 +310,8 @@ export default function ApplyPage() {
                     <option value="11">10+ years</option>
                   </select>
                 </Field>
-                <Field label="Tech Stack *" error={errors.tech_stack?.message}>
-                  {Object.entries(TECH_STACK_OPTIONS).map(([cat, techs]) => (
-                    <div key={cat} className="mb-2">
-                      <p className="text-xs font-semibold text-gray-400 uppercase mb-1.5">{cat}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {techs.map((t) => (
-                          <Chip key={t} active={techStack.includes(t)} onClick={() => toggleArray('tech_stack', t)}>{t}</Chip>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                <Field label="Skills *" error={errors.tech_stack?.message}>
+                  <SkillTaxonomyPicker mode="developer" value={skillTags} onChange={handleSkillTagsChange} />
                 </Field>
                 <Field label="Job Interests * (roles you want to be matched to)" error={errors.job_interests?.message}>
                   <div className="flex flex-wrap gap-2">

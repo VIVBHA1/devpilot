@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { StatusBadge } from '@/components/admin/StatusBadge'
+import { AdminNav } from '@/components/admin/AdminNav'
 import { formatINR } from '@/lib/utils'
 import type { Brief, BriefStatusValue } from '@/types/database'
 
@@ -31,14 +32,7 @@ export default async function AdminBriefsPage({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-[#1E293B] text-white">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-6">
-          <span className="font-bold text-blue-400">DevPilot Admin</span>
-          <Link href="/admin" className="text-sm text-gray-400 hover:text-white">Applications</Link>
-          <Link href="/admin/briefs" className="text-sm text-white font-medium border-b border-white pb-0.5">Briefs</Link>
-          <Link href="/admin/engagements" className="text-sm text-gray-400 hover:text-white">Engagements</Link>
-        </div>
-      </nav>
+      <AdminNav active="/admin/briefs" />
       <div className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Buyer Briefs</h1>
 

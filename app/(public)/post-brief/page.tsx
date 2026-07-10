@@ -5,16 +5,11 @@ import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
-import { Layers, Cloud, HelpCircle, Loader2, ShieldCheck, Clock, CheckCircle, X, FileText } from 'lucide-react'
+import { Layers, Cloud, HelpCircle, Loader2, ShieldCheck, Clock, CheckCircle, X, FileText, Sparkles, AlertTriangle } from 'lucide-react'
 import { FileUpload } from '@/components/ui/FileUpload'
+import { SkillTaxonomyPicker, type SkillTagValue } from '@/components/ui/SkillTaxonomyPicker'
+import type { ParsedBriefFields, BriefPriorityValue, BriefSourceTypeValue } from '@/types/database'
 
-const TECH_OPTIONS = {
-  Frontend: ['React', 'Next.js', 'Vue.js', 'Angular', 'TypeScript'],
-  Backend: ['Node.js', 'Python', 'Java', 'Go', '.NET'],
-  Database: ['PostgreSQL', 'MongoDB', 'MySQL', 'Redis'],
-  Cloud: ['AWS', 'GCP', 'Azure', 'Docker', 'Kubernetes', 'Terraform'],
-  Other: ['GraphQL', 'REST APIs', 'CI/CD', 'Git'],
-}
 const DURATION_OPTIONS = [
   { label: '2 weeks', value: 2 }, { label: '1 month', value: 4 }, { label: '2 months', value: 8 },
   { label: '3 months', value: 13 }, { label: '6 months', value: 26 }, { label: 'Ongoing', value: 52 },
@@ -38,6 +33,7 @@ const schema = z.object({
   budget_min: z.coerce.number().optional(),
   budget_max: z.coerce.number().optional(),
   is_negotiable: z.boolean(),
+  priority: z.enum(['urgent', 'high', 'standard']),
   // Section 5
   company_name: z.string().min(1, 'Company name is required'),
   contact_name: z.string().min(1, 'Your name is required'),
@@ -46,7 +42,7 @@ const schema = z.object({
 })
 type FormData = z.infer<typeof schema>
 
-type Attachment = { file_url: string; file_name: string; file_type: string }
+type Attachment = { file_url: string; file_name: string; file_type: string; parsed_fields?: ParsedBriefFields }
 
 const ROLE_OPTIONS = [
   { value: 'Full-Stack', label: 'Full-Stack Developer', icon: Layers },
@@ -62,18 +58,47 @@ export default function PostBriefPage() {
   const [error, setError] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [figmaLink, setFigmaLink] = useState('')
+  const [skillTags, setSkillTags] = useState<SkillTagValue[]>([])
+  const [sourceType, setSourceType] = useState<BriefSourceTypeValue>('manual_form')
+  const [parsing, setParsing] = useState(false)
+  const [parsedFields, setParsedFields] = useState<ParsedBriefFields | null>(null)
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, getValues } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema) as Resolver<FormData>,
-    defaultValues: { tech_stack: [], is_negotiable: true },
+    defaultValues: { tech_stack: [], is_negotiable: true, priority: 'standard' },
   })
 
-  const techStack = watch('tech_stack') ?? []
   const description = watch('description') ?? ''
 
-  const toggleTech = (tech: string) => {
-    const cur = getValues('tech_stack') ?? []
-    setValue('tech_stack', cur.includes(tech) ? cur.filter((t) => t !== tech) : [...cur, tech])
+  const handleSkillTagsChange = (tags: SkillTagValue[]) => {
+    setSkillTags(tags)
+    setValue('tech_stack', tags.map((t) => t.name))
+  }
+
+  const handleJdUpload = async ({ url, fileName }: { url: string | null; fileName: string; fileType: string }) => {
+    if (!url) return
+    setAttachments((a) => [...a, { file_url: url, file_name: fileName, file_type: 'pdf' }])
+    setSourceType('pdf_upload')
+    setParsing(true)
+    try {
+      const res = await fetch('/api/briefs/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_url: url, file_type: 'pdf' }),
+      })
+      const { parsed } = await res.json()
+      setParsedFields(parsed)
+      setAttachments((a) => a.map((att) => (att.file_url === url ? { ...att, parsed_fields: parsed } : att)))
+      if (parsed.role_type) setValue('role_type', parsed.role_type as FormData['role_type'])
+      if (parsed.duration_weeks) setValue('duration_weeks', parsed.duration_weeks)
+      if (parsed.budget_min) setValue('budget_min', parsed.budget_min)
+      if (parsed.budget_max) setValue('budget_max', parsed.budget_max)
+      if (parsed.experience_level_required) setValue('experience_level_required', parsed.experience_level_required as FormData['experience_level_required'])
+    } catch {
+      setParsedFields({ confidence: 'low' })
+    } finally {
+      setParsing(false)
+    }
   }
 
   const addFigmaLink = () => {
@@ -89,7 +114,7 @@ export default function PostBriefPage() {
       const res = await fetch('/api/briefs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, attachments }),
+        body: JSON.stringify({ ...data, attachments, skill_tags: skillTags, source_type: sourceType }),
       })
       if (!res.ok) {
         const body = await res.json()
@@ -111,6 +136,30 @@ export default function PostBriefPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {/* SECTION 0 — Auto-fill from a JD */}
+          <Section title="Optional: auto-fill from a job description">
+            <p className="text-xs text-gray-500 mb-3">Upload a PDF and we&apos;ll pre-fill the fields below. Every AI-parsed field stays editable — review before publishing.</p>
+            <FileUpload kind="brief-jd-doc" accept="application/pdf" label={parsing ? 'Parsing…' : 'Upload JD (PDF)'} onUploaded={handleJdUpload} />
+            {parsing && (
+              <p className="mt-2 text-xs text-gray-500 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Reading your document…</p>
+            )}
+            {parsedFields && !parsing && (
+              <div className="mt-3 p-3 rounded-lg bg-blue-50 border border-blue-100">
+                <p className="text-xs font-medium text-blue-800 flex items-center gap-1.5 mb-1">
+                  <Sparkles className="w-3.5 h-3.5" /> AI-parsed — review before publishing
+                </p>
+                {parsedFields.tech_stack?.length ? (
+                  <p className="text-xs text-blue-700 mb-1">Suggested skills: {parsedFields.tech_stack.join(', ')} — add matching ones below.</p>
+                ) : null}
+                {parsedFields.low_confidence_fields?.length ? (
+                  <p className="text-xs text-amber-700 flex items-center gap-1.5 mt-1">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Low confidence on: {parsedFields.low_confidence_fields.join(', ')} — please double-check.
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </Section>
+
           {/* SECTION 1 — Project Basics */}
           <Section title="1. Project Basics">
             <Label required>What type of developer do you need?</Label>
@@ -159,25 +208,24 @@ export default function PostBriefPage() {
                 {errors.experience_level_required && <p className="mt-1 text-sm text-red-600">{errors.experience_level_required.message}</p>}
               </div>
             </div>
+
+            <div className="mt-4">
+              <Label required>Priority</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['urgent', 'high', 'standard'] as BriefPriorityValue[]).map((p) => (
+                  <label key={p} className={`p-2.5 rounded-lg border cursor-pointer text-sm text-center capitalize ${watch('priority') === p ? 'border-[#2563EB] bg-blue-50' : 'border-gray-200'}`}>
+                    <input type="radio" value={p} {...register('priority')} className="sr-only" />{p}
+                  </label>
+                ))}
+              </div>
+            </div>
           </Section>
 
           {/* SECTION 2 — Requirements */}
           <Section title="2. Requirements">
             <Label>Tech stack <span className="font-normal text-gray-400">(optional)</span></Label>
             <p className="text-xs text-gray-500 mb-2">Leave blank if unsure — we&apos;ll suggest based on your description.</p>
-            {Object.entries(TECH_OPTIONS).map(([cat, techs]) => (
-              <div key={cat} className="mb-2">
-                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">{cat}</p>
-                <div className="flex flex-wrap gap-2">
-                  {techs.map((t) => (
-                    <button key={t} type="button" onClick={() => toggleTech(t)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border ${techStack.includes(t) ? 'bg-[#2563EB] text-white border-[#2563EB]' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+            <SkillTaxonomyPicker mode="brief" value={skillTags} onChange={handleSkillTagsChange} />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
               <div>
                 <Label required>Duration</Label>

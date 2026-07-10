@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadFile, type UploadKind } from '@/lib/storage'
 
-const ALLOWED: UploadKind[] = ['id-doc', 'portfolio', 'certificate', 'video', 'brief-attachment', 'skill-cert']
+const ALLOWED: UploadKind[] = ['id-doc', 'portfolio', 'certificate', 'video', 'brief-attachment', 'skill-cert', 'brief-jd-doc']
 const MAX_BYTES = 25 * 1024 * 1024 // 25MB
 
 export async function POST(req: NextRequest) {

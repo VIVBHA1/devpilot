@@ -2,8 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Upload, Loader2, Check, X } from 'lucide-react'
-
-type UploadKind = 'id-doc' | 'portfolio' | 'certificate' | 'video' | 'brief-attachment' | 'skill-cert'
+import type { UploadKind } from '@/lib/storage'
 
 interface FileUploadProps {
   kind: UploadKind

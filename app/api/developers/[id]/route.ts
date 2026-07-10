@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendApplicationApproved, sendApplicationRejected } from '@/lib/resend'
 import { signedIdDocUrl } from '@/lib/storage'
+import { recomputeForDeveloper } from '@/lib/matching/computeForBrief'
+import { logCandidateEvent } from '@/lib/candidateEvents'
 
 export async function GET(
   _req: NextRequest,
@@ -92,6 +94,16 @@ export async function PATCH(
         email: developer.email,
         primary_role: developer.primary_role,
       }).catch(console.error)
+    }
+
+    // Approval/visibility/tier changes affect this developer's eligibility and trust/rating
+    // scoring across every open brief — recompute in the background. §Prompt 14.
+    if (data.status === 'approved' || data.is_visible !== undefined || data.tier) {
+      recomputeForDeveloper(id).catch(console.error)
+    }
+
+    if (data.status) {
+      logCandidateEvent(id, `status_changed_to_${data.status}`, 'admin', { status: data.status }).catch(console.error)
     }
 
     return NextResponse.json({ success: true })

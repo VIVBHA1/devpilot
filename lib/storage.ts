@@ -5,7 +5,7 @@ export const ID_DOCS_BUCKET = process.env.STORAGE_ID_DOCS_BUCKET || 'devpilot-id
 
 // "id-docs" uploads land in the private bucket (§3 / §7 — never public).
 // Everything else (portfolio, certs, video, brief attachments) is public.
-export type UploadKind = 'id-doc' | 'portfolio' | 'certificate' | 'video' | 'brief-attachment' | 'skill-cert'
+export type UploadKind = 'id-doc' | 'portfolio' | 'certificate' | 'video' | 'brief-attachment' | 'skill-cert' | 'brief-jd-doc'
 
 function bucketFor(kind: UploadKind): string {
   return kind === 'id-doc' ? ID_DOCS_BUCKET : PUBLIC_BUCKET

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { verifyKycWebhookSignature, parseKycWebhook } from '@/lib/kyc'
 import { sendKycRejected } from '@/lib/resend'
+import { recomputeForDeveloper } from '@/lib/matching/computeForBrief'
+import { logCandidateEvent } from '@/lib/candidateEvents'
 
 // Provider posts here when a verification result is ready (§3 Step 4).
 export async function POST(
@@ -50,6 +52,9 @@ export async function POST(
   if (result.status === 'rejected' && dev) {
     sendKycRejected({ full_name: dev.full_name, email: dev.email, developer_id: id }).catch(console.error)
   }
+
+  recomputeForDeveloper(id).catch(console.error)
+  logCandidateEvent(id, result.status === 'verified' ? 'kyc_verified' : 'kyc_rejected', 'system', { provider: 'webhook' }).catch(console.error)
 
   return NextResponse.json({ received: true, status: result.status })
 }

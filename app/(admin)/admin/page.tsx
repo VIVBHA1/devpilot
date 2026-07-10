@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { StatusBadge } from '@/components/admin/StatusBadge'
+import { AdminNav } from '@/components/admin/AdminNav'
 import type { Developer, DeveloperStatusValue } from '@/types/database'
 
 const FILTERS: { label: string; value: string }[] = [
@@ -49,18 +50,7 @@ export default async function AdminDashboardPage({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Admin Nav */}
-      <nav className="bg-[#1E293B] text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <span className="font-bold text-blue-400">DevPilot Admin</span>
-            <Link href="/admin" className="text-sm text-white font-medium border-b border-white pb-0.5">Applications</Link>
-            <Link href="/admin/briefs" className="text-sm text-gray-400 hover:text-white">Briefs</Link>
-            <Link href="/admin/engagements" className="text-sm text-gray-400 hover:text-white">Engagements</Link>
-          </div>
-          <span className="text-xs text-gray-400">{process.env.ADMIN_EMAIL}</span>
-        </div>
-      </nav>
+      <AdminNav active="/admin" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Developer Applications</h1>

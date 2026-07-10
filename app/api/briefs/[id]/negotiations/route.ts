@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendOfferMagicLink } from '@/lib/resend'
 
 // GET — list negotiation history for a brief (optionally one shortlist).
 // Immutable, insert-only per business rule §7.
@@ -61,6 +63,42 @@ export async function POST(
 
     // Mark the brief as matching/negotiating if still open
     await supabase.from('briefs').update({ status: 'matching' }).eq('id', id).eq('status', 'open')
+
+    // An offer now exists for this candidate — lock their screening rating (§Prompt 19).
+    const { data: shortlist } = await supabase
+      .from('shortlists')
+      .select('developer_id')
+      .eq('id', data.shortlist_id)
+      .single()
+    if (shortlist?.developer_id) {
+      await supabase
+        .from('candidate_screening_ratings')
+        .update({ locked_at: new Date().toISOString() })
+        .eq('brief_id', id)
+        .eq('developer_id', shortlist.developer_id)
+        .is('locked_at', null)
+    }
+
+    // Something the candidate needs to respond to (a new offer or counter from the
+    // buyer/admin side) gets a single-use magic link. §Prompt 20.
+    if (data.proposed_by !== 'developer' && shortlist?.developer_id) {
+      const [{ data: developer }, { data: brief }] = await Promise.all([
+        supabase.from('developers').select('full_name, email').eq('id', shortlist.developer_id).single(),
+        supabase.from('briefs').select('buyer_id, buyers(company_name)').eq('id', id).single(),
+      ])
+      const buyerRow = brief && (Array.isArray(brief.buyers) ? brief.buyers[0] : brief.buyers)
+      if (developer && buyerRow) {
+        const token = crypto.randomBytes(24).toString('hex')
+        const expiresAt = new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString()
+        await supabase.from('offer_links').insert({ brief_negotiation_id: row.id, token, expires_at: expiresAt })
+        sendOfferMagicLink({
+          full_name: developer.full_name,
+          email: developer.email,
+          company_name: buyerRow.company_name,
+          token,
+        }).catch(console.error)
+      }
+    }
 
     return NextResponse.json({ id: row.id }, { status: 201 })
   } catch (e) {

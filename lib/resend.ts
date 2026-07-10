@@ -217,6 +217,59 @@ export async function sendKycRejected(developer: {
   })
 }
 
+export async function sendCompanyVerificationEmail(buyer: {
+  contact_name: string
+  company_email: string
+  token: string
+}) {
+  const verifyUrl = `${APP_URL()}/verify-email/${buyer.token}`
+  const content = `
+    <h2 style="color:#111827;margin:0 0 16px">Hi ${buyer.contact_name},</h2>
+    <p style="color:#374151;line-height:1.6;margin:0 0 16px">
+      Confirm your work email to activate your DevPilot company account and access your dashboard.
+    </p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="${verifyUrl}" style="background:#2563EB;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">
+        Verify email
+      </a>
+    </div>
+    <p style="color:#6b7280;font-size:13px;margin:0">This link expires in 24 hours.</p>
+  `
+  return getResend().emails.send({
+    from: FROM(),
+    to: buyer.company_email,
+    subject: 'Verify your DevPilot company email',
+    html: baseTemplate(content),
+  })
+}
+
+export async function sendOfferMagicLink(candidate: {
+  full_name: string
+  email: string
+  company_name: string
+  token: string
+}) {
+  const offerUrl = `${APP_URL()}/offer/${candidate.token}`
+  const content = `
+    <h2 style="color:#111827;margin:0 0 16px">Hi ${candidate.full_name},</h2>
+    <p style="color:#374151;line-height:1.6;margin:0 0 16px">
+      <strong>${candidate.company_name}</strong> has sent you an offer on DevPilot. Review it and respond below.
+    </p>
+    <div style="text-align:center;margin:24px 0">
+      <a href="${offerUrl}" style="background:#2563EB;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">
+        View offer
+      </a>
+    </div>
+    <p style="color:#6b7280;font-size:13px;margin:0">This link is single-use and expires in 5 business days.</p>
+  `
+  return getResend().emails.send({
+    from: FROM(),
+    to: candidate.email,
+    subject: `New offer from ${candidate.company_name} on DevPilot`,
+    html: baseTemplate(content),
+  })
+}
+
 export async function sendRatingNotification(developer: {
   full_name: string
   email: string

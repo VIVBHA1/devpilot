@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendKycRejected } from '@/lib/resend'
+import { recomputeForDeveloper } from '@/lib/matching/computeForBrief'
+import { logCandidateEvent } from '@/lib/candidateEvents'
 
 // Admin manual override — Force Verify / Force Reject (§6 admin panel).
 const schema = z.object({
@@ -33,6 +35,10 @@ export async function PATCH(
     if (action === 'reject' && dev) {
       sendKycRejected({ full_name: dev.full_name, email: dev.email, developer_id: id }).catch(console.error)
     }
+
+    // Verification status feeds the trust_score factor. §Prompt 14.
+    recomputeForDeveloper(id).catch(console.error)
+    logCandidateEvent(id, action === 'verify' ? 'kyc_verified' : 'kyc_rejected', 'admin', { reason }).catch(console.error)
 
     return NextResponse.json({ success: true })
   } catch (e) {
